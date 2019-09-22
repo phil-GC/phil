@@ -1,0 +1,181 @@
+整合SSM框架具体步骤
+1.导入相应坐标
+2.补充项目目录，传入日志配置文件
+3.创建实体类对象
+
+4.创建持久层接口（按照需求创建相应方法接口，mapper层接口）
+5.创建mapper映射文件（创建与方法相应的sql语句）
+6.创建applicationContext.xml主配置文件
+	6.1.引入外部文件：数据源文件
+
+		<context:property-placeholder location="classpath:jdbc.properties"/>
+
+	6.2.配置连接池
+
+		<bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource">
+       			 <property name="driverClass" value="${jdbc.driver}"/>
+       			 <property name="jdbcUrl" value="${jdbc.url}"/>
+     			  <property name="user" value="${jdbc.username}"/>
+      			  <property name="password" value="${jdbc.password}"/>
+  		 </bean>
+
+	6.3.配置sqlsessionfactory工厂
+	6.4.给实体类对象配置别名
+		<!--配置sqlsessionfactory工厂-->
+   		 <bean class="org.mybatis.spring.SqlSessionFactoryBean">
+      			  <property name="dataSource" ref="dataSource"/>
+     			  <!--配置别名-->
+       			  <property name="typeAliasesPackage" value="cn.itcast.domain"/> <!--eg：cn.itcast.domain-->
+      			  <!--分页插件-->
+      			  <property name="plugins">
+      			      <array>
+				<bean class="com.github.pagehelper.PageInterceptor">
+					<property name="properties">
+						<value>
+							helperDialect=mysql
+							reasonable=true
+						</value>
+					</property>
+				</bean>
+      			    </array>
+ 			</property>
+		</bean>
+
+	6.5.配置接口的代理对象创建，并且交由spring管理
+
+		<!--配置接口的代理对象创建，并且交由spring管理-->
+    		<bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+        			<!--接口的包路径，并且声称接口的实现类-->
+        			<property name="basePackage" value="cn.itcast.mapper"/> <!--eg：cn.itcast.mapper-->
+   		 </bean>
+
+	6.6.测试mapper层
+
+7.创建service层接口和实现类（注意添加注解）
+8.修改applicationContext.xml配置文件
+	8.1.对service层进行组件扫描
+
+		<!--对service层进行组件扫描-->
+    		<context:component-scan base-package="cn.itcast.service"/> <!--eg：cn.itcast.service-->
+
+	8.2.配置事务管理器
+
+		<!-- 配置事务管理器 -->
+   		<bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        			<property name="dataSource" ref="dataSource"/>
+    		</bean>
+
+	8.3.配置事务的通知
+		
+		<!--配置事务的通知-->
+		<tx:advice id="advice">
+			<tx:attributes>
+				<tx:method name="save*" propagation="REQUIRED"/>
+				<tx:method name="update*" propagation="REQUIRED"/>
+				<tx:method name="delete*" propagation="REQUIRED"/>
+				<tx:method name="find*" read-only="true"/>
+				<tx:method name="*" propagation="REQUIRED"/>
+			</tx:attributes>
+		</tx:advice>
+
+	8.4.配置切面aop
+
+		<!-- 配置aop -->
+    		<aop:config>
+    			<aop:pointcut expression="execution(* cn.itcast.service.impl.*.*(..))" id="pt1"/> <!--eg：execution(* cn.itcast.service.impl.*.*(..))-->
+    			<aop:advisor advice-ref="txAdvice" pointcut-ref="pt1"/>
+    		</aop:config>
+
+	8.5.测试service层
+
+9.创建controller层（注意添加注解）
+10.创建springmvc.xml配置文件
+	10.1.开启包扫描，扫描Controller层
+		
+		<!--开启包扫描，扫描Controller-->
+		<context:component-scan base-package="cn.itcast.controller" /> <!--eg：cn.itcast.controller -->
+
+	10.2.配置开启注解扫描
+
+		<!--配置开启注解扫描-->
+   		<mvc:annotation-driven />
+
+	10.3.开启静态资源处理
+
+		<!--开启静态资源处理-->
+		<mvc:default-servlet-handler />
+
+	10.4.配置视图解析器
+
+		<!--配置视图解析器-->
+		<bean class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+			<property name="prefix" value="/WEB-INF/pages/" />
+			<property name="suffix" value=".jsp" />
+		</bean>
+
+	10.5.配置拦截器
+
+		<!--配置拦截器-->
+		<mvc:interceptors>
+			<mvc:interceptor>
+				<!--对哪些资源进行拦截-->
+				<mvc:mapping path="/**"/>
+				<bean class="cn.itcast.interceptor.MyInterceptor"/> <!--eg：cn.itcast.interceptor.MyInterceptor -->
+			</mvc:interceptor>
+		</mvc:interceptors>
+
+11.配置web.xml文件
+	11.1.配置全局编码过滤器
+
+		<!--配置全局编码过滤器-->
+		<filter>
+			<filter-name>CharacterEncodingFilter</filter-name>
+			<filter-class>org.springframework.web.filter.CharacterEncodingFilter</filter-class>
+			<init-param>
+				<param-name>encoding</param-name>
+				<param-value>UTF-8</param-value>
+			</init-param>
+			<init-param>
+				<param-name>forceEncoding</param-name>
+				<param-value>true</param-value>
+			</init-param>
+		</filter>
+		<filter-mapping>
+			<filter-name>CharacterEncodingFilter</filter-name>
+			<url-pattern>/*</url-pattern>
+		</filter-mapping>
+
+	11.2.配置spring核心监听器和配置扫描
+
+		<!--配置全局参数，告诉spring框架配置文件的位置-->
+		<context-param>
+			<param-name>contextConfigLocation</param-name>
+			<param-value>classpath:applicationContext.xml</param-value>
+		</context-param>
+		<!--集成spring框架-->
+		<listener>
+			<listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
+		</listener>
+
+	11.3.引入springmvc框架：配置前端控制器
+
+		<!--引入springmvc框架：配置前端控制器-->
+		<servlet>
+			<servlet-name>springmvc</servlet-name>
+			<servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
+			<init-param>
+				<param-name>contextConfigLocation</param-name>
+				<param-value>classpath:springmvc.xml</param-value>
+			</init-param>
+			<load-on-startup>1</load-on-startup>
+		</servlet>
+		<servlet-mapping>
+			<servlet-name>springmvc</servlet-name>
+			<url-pattern>/</url-pattern>
+		</servlet-mapping>
+
+12.运行tomcat插件
+
+
+
+
