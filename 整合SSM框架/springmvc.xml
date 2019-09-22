@@ -31,5 +31,4 @@
     <!--释放静态资源-->
     <mvc:default-servlet-handler/>
 
-
 </beans>
